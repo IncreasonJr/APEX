@@ -1,0 +1,164 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #f4f7fc;
+  --foreground: #0a1435;
+  --surface: #eef2fc;
+  --sidebar-bg: #e3e7f5;
+  --accent: #2560e0;
+  --border-color: rgba(10, 20, 53, 0.08);
+  --accent-glow: rgba(37, 96, 224, 0.15);
+  --accent-glow-hide: rgba(37, 96, 224, 0);
+
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --font-display: system-ui, sans-serif;
+
+  --user-msg-bg: #e2e9f8;
+  --ai-msg-bg: #f4f7fc;
+}
+
+:root.dark {
+  --background: #070c1e;
+  --foreground: #e2e8f0;
+  --surface: #111d40;
+  --sidebar-bg: #0a1128;
+  --accent: #2560e0;
+  --border-color: #19295a;
+  --accent-glow: rgba(37, 96, 224, 0.25);
+  --accent-glow-hide: rgba(37, 96, 224, 0);
+
+  --user-msg-bg: #152452;
+  --ai-msg-bg: #070c1e;
+}
+
+body {
+  color: var(--foreground);
+  background-color: var(--background);
+  font-family: var(--font-sans);
+  font-size: 15.5px;
+  transition: background-color 0.2s ease, color 0.2s ease;
+  overflow-x: hidden;
+}
+
+/* Fluid Typography for Apex */
+h1 {
+  font-size: clamp(1.5rem, 5vw, 2.75rem);
+  line-height: 1.1;
+  font-weight: 850;
+  letter-spacing: -0.04em;
+}
+
+p {
+  font-size: clamp(0.85rem, 1.2vw, 0.95rem);
+  line-height: 1.6;
+}
+
+/* Custom Minimal Scrollbar Styles */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+
+/* Altimeter scale line guide for chat viewport */
+.altimeter-line {
+  position: absolute;
+  left: 2.25rem;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: repeating-linear-gradient(
+    to bottom,
+    var(--border-color),
+    var(--border-color) 8px,
+    transparent 8px,
+    transparent 16px
+  );
+}
+
+/* Thinking Indicator sequential bounces */
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+.dot-1 {
+  animation: bounce 1.2s infinite 0.1s ease-in-out;
+}
+.dot-2 {
+  animation: bounce 1.2s infinite 0.25s ease-in-out;
+}
+.dot-3 {
+  animation: bounce 1.2s infinite 0.4s ease-in-out;
+}
+
+/* Shake animation for invalid files */
+@keyframes shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  20%, 60% {
+    transform: translateX(-4px);
+  }
+  40%, 80% {
+    transform: translateX(4px);
+  }
+}
+
+.animate-shake {
+  animation: shake 0.4s ease-in-out;
+}
+
+/* Pulsing accent beacon glow for recordings */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 var(--accent-glow);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 0 8px var(--accent-glow-hide);
+    transform: scale(1.04);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 1.6s infinite ease-in-out;
+}
+
+/* Glassmorphism helpers - customized for Apex minimal blurs */
+.glass-panel {
+  background-color: rgba(241, 245, 249, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-color: var(--border-color);
+}
+
+.dark .glass-panel {
+  background-color: rgba(37, 37, 37, 0.45);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-color: var(--border-color);
+}
+
+.smooth-transition {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}

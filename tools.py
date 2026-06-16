@@ -1,0 +1,183 @@
+import os
+import asyncio
+import logging
+import threading
+import time
+import subprocess
+from typing import Dict, Any
+import httpx
+from tavily import TavilyClient
+import docker
+from dotenv import load_dotenv
+load_dotenv()
+
+logger = logging.getLogger("tools")
+
+# Tavily Client setup
+TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
+
+async def web_search(query: str) -> str:
+    """Search the web and return summarized results."""
+    api_key = TAVILY_API_KEY or os.getenv("TAVILY_API_KEY")
+    if not api_key:
+        return (
+            "Search error: TAVILY_API_KEY environment variable is not set.\n"
+            "Please obtain a free Tavily API key from https://tavily.com and configure it in your .env file."
+        )
+    
+    try:
+        # Offload synchronous Tavily client call to threadpool executor with 10s timeout
+        loop = asyncio.get_running_loop()
+        client = TavilyClient(api_key=api_key)
+        
+        logger.info(f"Running web search for query: '{query}'")
+        
+        response = await asyncio.wait_for(
+            loop.run_in_executor(None, lambda: client.search(query=query, max_results=3)),
+            timeout=10.0
+        )
+        
+        results = response.get("results", [])
+        if not results:
+            return "No web search results found."
+            
+        formatted = []
+        for index, res in enumerate(results, 1):
+            title = res.get("title", "No Title")
+            url = res.get("url", "No URL provided")
+            content = res.get("content", "")
+            formatted.append(f"[{index}] Source: {title}\nURL: {url}\nSummary: {content}\n")
+            
+        return "\n---\n".join(formatted)
+        
+    except asyncio.TimeoutError:
+        logger.error("Web search timed out after 10 seconds.")
+        return "Search error: The web search request timed out after 10 seconds."
+    except Exception as e:
+        logger.error(f"Error running web search: {e}")
+        err_msg = str(e).lower()
+        if "rate limit" in err_msg or "429" in err_msg:
+            return "Search error: Tavily API rate limit exceeded. Please try again in a few moments."
+        return f"Search error: {str(e)}"
+
+def _run_docker_container(image: str, cmd: list) -> str:
+    """Synchronous docker runner executed in thread pool with strict security constraints."""
+    try:
+        client = docker.from_env()
+    except Exception as e:
+        return f"Docker connection error: {str(e)}. Make sure Docker daemon is running."
+        
+    container = None
+    t_out = None
+    t_err = None
+    try:
+        user_val = None if image == "sandbox:latest" else "nobody"
+        container = client.containers.run(
+            image=image,
+            command=cmd,
+            network_mode="none",
+            mem_limit="128m",
+            nano_cpus=500000000,
+            read_only=True,
+            tmpfs={"/tmp": "rw,size=64m"},
+            detach=True,
+            auto_remove=True,
+            user=user_val
+        )
+        
+        stdout_list = []
+        stderr_list = []
+        def read_stream(stdout: bool, stderr: bool, dest: list):
+            try:
+                for chunk in container.logs(stdout=stdout, stderr=stderr, stream=True):
+                    dest.append(chunk.decode("utf-8", errors="ignore"))
+            except Exception:
+                pass
+        t_out = threading.Thread(target=read_stream, args=(True, False, stdout_list))
+        t_err = threading.Thread(target=read_stream, args=(False, True, stderr_list))
+        
+        t_out.start()
+        t_err.start()
+        start_time = time.time()
+        while True:
+            try:
+                container.reload()
+                status = container.status
+                if status not in ("running", "restarting"):
+                    break
+            except docker.errors.NotFound:
+                break
+            
+            if time.time() - start_time > 30.0:
+                try:
+                    container.kill()
+                except Exception:
+                    pass
+                return "Execution error: Code execution timed out after 30 seconds."
+                
+            time.sleep(0.1)
+        t_out.join(timeout=2.0)
+        t_err.join(timeout=2.0)
+        stdout_str = "".join(stdout_list)
+        stderr_str = "".join(stderr_list)
+        output = []
+        if stdout_str:
+            output.append(stdout_str)
+        if stderr_str:
+            output.append(f"[Standard Error Output]\n{stderr_str}")
+        return "\n".join(output) if output else "[Code executed successfully with no output]"
+            
+    except Exception as e:
+        return f"Docker execution error: {str(e)}"
+
+async def execute_code(code: str, language: str = "python") -> str:
+    """Execute code in a safe Docker sandbox and return output."""
+    enabled_env = os.getenv("CODE_EXECUTION_ENABLED", "true").lower()
+    if enabled_env == "false":
+        return "Execution error: Code execution is disabled on this server."
+    
+    lang = language.lower().strip()
+    
+    image = None
+    cmd = []
+    
+    # Try to use custom sandbox image first
+    try:
+        client = docker.from_env()
+        client.images.get("sandbox:latest")
+        image = "sandbox:latest"
+    except Exception:
+        pass
+    
+    if image == "sandbox:latest":
+        if lang == "python":
+            cmd = ["python3", "-c", code]
+        elif lang in ("javascript", "js", "node"):
+            cmd = ["node", "-e", code]
+        elif lang in ("bash", "sh"):
+            cmd = ["bash", "-c", code]
+        else:
+            return f"Execution error: Unsupported language '{language}'. Supported: python, javascript, bash."
+    else:
+        # Fallback to standard images
+        if lang == "python":
+            image = "python:3.10-slim"
+            cmd = ["python", "-c", code]
+        elif lang in ("javascript", "js", "node"):
+            image = "node:18-slim"
+            cmd = ["node", "-e", code]
+        elif lang in ("bash", "sh"):
+            image = "alpine:latest"
+            cmd = ["sh", "-c", code]
+        else:
+            return f"Execution error: Unsupported language '{language}'. Supported: python, javascript, bash."
+    
+    logger.info(f"Executing {lang} code in Docker sandbox using image {image}...")
+    
+    try:
+        loop = asyncio.get_running_loop()
+        output = await loop.run_in_executor(None, _run_docker_container, image, cmd)
+        return output if output.strip() else "[Code executed successfully with no output]"
+    except Exception as e:
+        logger.error(f"Code execution wrapper failed: {e}")
+        return f"Execution error: {str(e)}"
