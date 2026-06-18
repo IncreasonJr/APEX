@@ -70,7 +70,7 @@ export default function FileUpload({ onFileSelect, onUploadError, selectedFile }
         ref={buttonRef}
         type="button"
         onClick={handleClick}
-        className={`p-2.5 rounded-full transition-all duration-200 shrink-0 active:scale-90 flex items-center justify-center ${
+        className={`p-3 md:p-2.5 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 rounded-full transition-all duration-200 shrink-0 active:scale-90 flex items-center justify-center ${
           isShaking
             ? "animate-shake text-red-500 bg-red-550/10 border border-red-500"
             : ""

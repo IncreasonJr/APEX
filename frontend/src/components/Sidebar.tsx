@@ -53,11 +53,28 @@ export default function Sidebar({
     try {
       await onLoadProject(inputPath.trim());
       setShowPathDialog(false);
+      if (!collapsed && window.innerWidth < 768) {
+        onToggle();
+      }
     } catch (err: any) {
       console.error(err);
       setDialogError(err.message || "Failed to load directory. Make sure the path is correct and accessible.");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleFileClick = (node: FileNode) => {
+    onFileSelect(node);
+    if (!collapsed && window.innerWidth < 768) {
+      onToggle();
+    }
+  };
+
+  const handleNewChatClick = () => {
+    onNewChat();
+    if (!collapsed && window.innerWidth < 768) {
+      onToggle();
     }
   };
 
@@ -68,9 +85,19 @@ export default function Sidebar({
 
   return (
     <>
+      {/* Mobile Sidebar Backdrop Overlay */}
+      {!collapsed && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 md:hidden"
+          onClick={onToggle}
+        />
+      )}
+
       <aside
-        className={`h-screen flex flex-col justify-between border-r border-border-color bg-[var(--sidebar-bg)]/85 glass-panel transition-all duration-300 z-20 select-none ${
-          collapsed ? "w-[68px]" : "w-[260px]"
+        className={`fixed md:relative top-0 bottom-0 left-0 h-screen flex flex-col justify-between border-r border-border-color bg-[var(--sidebar-bg)]/95 md:bg-[var(--sidebar-bg)]/85 glass-panel transition-all duration-300 z-40 select-none ${
+          collapsed 
+            ? "-translate-x-full md:translate-x-0 md:w-[68px]" 
+            : "translate-x-0 w-[260px]"
         }`}
       >
         {/* Top Section */}
@@ -115,7 +142,7 @@ export default function Sidebar({
             </button>
 
             <button
-              onClick={onNewChat}
+              onClick={handleNewChatClick}
               className={`flex items-center gap-2.5 px-3.5 h-10 rounded-xl border border-border-color bg-surface/30 hover:bg-surface text-[12px] font-sans font-medium text-neutral-350 hover:text-foreground hover:border-accent transition-all duration-200 shrink-0 ${
                 collapsed ? "w-10 p-0 justify-center" : "w-full"
               }`}
@@ -145,7 +172,7 @@ export default function Sidebar({
                   <FileTree
                     nodes={fileTreeNodes}
                     activeFilePath={activeFilePath}
-                    onFileSelect={onFileSelect}
+                    onFileSelect={handleFileClick}
                   />
                 </div>
               </>

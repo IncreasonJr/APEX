@@ -98,7 +98,7 @@ function TreeNode({ node, activeFilePath, onFileSelect, depth }: TreeNodeProps) 
     <div className="w-full flex flex-col px-1.5">
       <div
         onClick={handleSelect}
-        className={`group flex items-center gap-1.5 py-1.5 px-2 rounded-lg cursor-pointer transition-all duration-150 relative ${
+        className={`group flex items-center gap-1.5 py-3 md:py-1.5 min-h-[44px] md:min-h-0 px-2 rounded-lg cursor-pointer transition-all duration-150 relative ${
           isActive
             ? "bg-accent/10 text-accent font-semibold border-l-2 border-accent"
             : "hover:bg-neutral-800/25 text-neutral-300 hover:text-foreground border-l-2 border-transparent"

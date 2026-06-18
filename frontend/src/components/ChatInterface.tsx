@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useRef, useEffect } from "react";
-import { Sparkles, Globe, Code, Brain } from "lucide-react";
+import { Sparkles, Globe, Code, Brain, Menu, Plus } from "lucide-react";
 import { useDropzone } from "react-dropzone";
 import { Message } from "@/lib/api";
 import ChatMessage from "./ChatMessage";
@@ -13,6 +13,8 @@ interface ChatInterfaceProps {
   activeFilePath: string | null;
   activeFileContent: string | null;
   onClearActiveFile: () => void;
+  sidebarCollapsed?: boolean;
+  onToggleSidebar?: () => void;
 }
 
 const SEARCH_KEYWORDS = [
@@ -93,6 +95,8 @@ export default function ChatInterface({
   activeFilePath,
   activeFileContent,
   onClearActiveFile,
+  sidebarCollapsed = true,
+  onToggleSidebar = () => {},
 }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -366,6 +370,37 @@ export default function ChatInterface({
 
   return (
     <div {...getRootProps()} className="flex-1 flex flex-col h-screen overflow-hidden bg-background relative">
+      {/* Mobile Top Header */}
+      <header className="flex md:hidden items-center justify-between px-4 py-2 border-b border-border-color bg-[var(--sidebar-bg)]/85 backdrop-blur-md shrink-0 z-20">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onToggleSidebar}
+            className="p-1 rounded-lg hover:bg-neutral-800/20 text-neutral-400 hover:text-foreground transition-all flex items-center justify-center min-h-[44px] min-w-[44px]"
+            aria-label="Open sidebar"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+          <img src="/logo.png" className="h-6 w-6 object-contain" alt="Apex Logo" />
+          <span className="font-sans font-extrabold text-[12px] tracking-wider uppercase text-foreground">
+            APEX
+          </span>
+        </div>
+        <div>
+          <button
+            type="button"
+            onClick={() => {
+              if (onNewChatRef.current) {
+                onNewChatRef.current();
+              }
+            }}
+            className="p-1 rounded-lg hover:bg-neutral-800/20 text-neutral-450 hover:text-foreground transition-all flex items-center justify-center min-h-[44px] min-w-[44px]"
+            title="Reset Chat"
+          >
+            <Plus className="h-5 w-5 text-accent" />
+          </button>
+        </div>
+      </header>
       <input {...getInputProps()} />
       {isDragActive && (
         <div className="absolute inset-0 bg-accent/5 backdrop-blur-sm border-2 border-dashed border-accent m-4 flex flex-col items-center justify-center gap-3 z-50 animate-in fade-in duration-200 pointer-events-none rounded-lg">
@@ -405,7 +440,7 @@ export default function ChatInterface({
             </div>
           </div>
         ) : (
-          <div className="w-full max-w-4xl mx-auto py-6 flex-1 flex flex-col">
+          <div className="w-full max-w-4xl mx-auto py-4 md:py-6 px-4 md:px-0 flex-1 flex flex-col">
             {activeFilePath && (
               <div className="px-4 w-full shrink-0">
                 <ContextIndicator activeFilePath={activeFilePath} onClear={onClearActiveFile} />

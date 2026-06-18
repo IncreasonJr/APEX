@@ -75,6 +75,8 @@ export default function Page() {
         activeFilePath={activeFilePath}
         activeFileContent={activeFileContent}
         onClearActiveFile={handleClearActiveFile}
+        sidebarCollapsed={sidebarCollapsed}
+        onToggleSidebar={handleToggleSidebar}
       />
     </div>
   );

@@ -106,7 +106,7 @@ export default function ChatInput({
           <button
             type="submit"
             disabled={isSubmitDisabled}
-            className={`p-2 rounded-full transition-all duration-200 shrink-0 flex items-center justify-center ${
+            className={`p-3 md:p-2 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 rounded-full transition-all duration-200 shrink-0 flex items-center justify-center ${
               !isSubmitDisabled
                 ? "bg-accent text-white hover:bg-accent/90 hover:scale-105 active:scale-90 shadow-sm shadow-accent/15"
                 : "bg-neutral-200/50 dark:bg-neutral-800/40 text-neutral-400 dark:text-neutral-600 cursor-not-allowed"

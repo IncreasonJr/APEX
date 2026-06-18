@@ -165,7 +165,7 @@ export default function ChatMessage({ message }: ChatMessageProps) {
         if (line.trim().startsWith("- ") || line.trim().startsWith("* ")) {
           const listText = line.replace(/^[\s*-]+/, "");
           return (
-            <ul key={`${lineIdx}`} className="list-disc pl-5 my-1 leading-relaxed text-sm md:text-[15px]">
+            <ul key={`${lineIdx}`} className="list-disc pl-5 my-1 leading-relaxed text-[16px] md:text-[15px]">
               <li>{parseInlineFormatting(listText)}</li>
             </ul>
           );
@@ -174,14 +174,14 @@ export default function ChatMessage({ message }: ChatMessageProps) {
         const numMatch = line.trim().match(/^\d+\.\s(.*)/);
         if (numMatch) {
           return (
-            <ol key={`${lineIdx}`} className="list-decimal pl-5 my-1 leading-relaxed text-sm md:text-[15px]">
+            <ol key={`${lineIdx}`} className="list-decimal pl-5 my-1 leading-relaxed text-[16px] md:text-[15px]">
               <li>{parseInlineFormatting(numMatch[1])}</li>
             </ol>
           );
         }
 
         return (
-          <p key={`${lineIdx}`} className="min-h-[1.2rem] leading-relaxed my-1 text-sm md:text-[15px]">
+          <p key={`${lineIdx}`} className="min-h-[1.2rem] leading-relaxed my-1 text-[16px] md:text-[15px]">
             {parseInlineFormatting(line)}
           </p>
         );

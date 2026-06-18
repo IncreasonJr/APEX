@@ -51,7 +51,7 @@ export default function ModelSelector({ selectedModel, onModelChange }: ModelSel
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className="inline-flex items-center gap-1.5 px-2.5 h-7 rounded border border-border bg-surface/40 hover:bg-surface text-[10px] font-mono text-neutral-400 hover:text-foreground transition-all duration-150"
+          className="inline-flex items-center gap-1.5 px-3.5 md:px-2.5 py-2.5 md:py-0 h-11 md:h-7 rounded border border-border bg-surface/40 hover:bg-surface text-xs md:text-[10px] font-mono text-neutral-400 hover:text-foreground transition-all duration-150"
         >
           <CurrentIcon className={`h-3 w-3 ${currentModel.iconColor} shrink-0`} />
           <span>{currentModel.name}</span>
@@ -84,7 +84,7 @@ export default function ModelSelector({ selectedModel, onModelChange }: ModelSel
                         onModelChange(model.id);
                         setIsOpen(false);
                       }}
-                      className={`w-full text-left p-2 rounded text-[10px] font-mono transition-all flex items-start gap-2.5 hover:bg-background border ${
+                      className={`w-full text-left p-3 md:p-2 rounded text-xs md:text-[10px] font-mono transition-all flex items-start gap-2.5 hover:bg-background border ${
                         isSelected
                           ? "text-accent bg-background border-border"
                           : "text-neutral-450 hover:text-foreground border-transparent hover:translate-x-0.5"
