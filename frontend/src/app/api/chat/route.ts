@@ -4,8 +4,11 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     
+    // Load backend URL from environment, fallback to localhost
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+
     // Proxy request directly to FastAPI backend stream endpoint
-    const backendResponse = await fetch("http://127.0.0.1:8000/chat/stream", {
+    const backendResponse = await fetch(`${backendUrl}/chat/stream`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
