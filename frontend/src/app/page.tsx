@@ -77,6 +77,7 @@ export default function Page() {
         onClearActiveFile={handleClearActiveFile}
         sidebarCollapsed={sidebarCollapsed}
         onToggleSidebar={handleToggleSidebar}
+        projectPath={projectPath}
       />
     </div>
   );

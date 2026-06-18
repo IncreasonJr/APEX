@@ -19,6 +19,7 @@ export async function POST(req: Request) {
         image: body.image || null, // Forward optional base64 image data
         active_file_path: body.active_file_path || null,
         active_file_content: body.active_file_content || null,
+        project_path: body.project_path || null,
       }),
     });
 

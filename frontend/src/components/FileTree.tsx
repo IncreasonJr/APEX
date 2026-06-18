@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Folder, FolderOpen, FileCode, FileText, FileJson, File, ChevronRight, ChevronDown } from "lucide-react";
 import { FileNode } from "@/lib/fileSystem";
 
@@ -71,6 +71,13 @@ function TreeNode({ node, activeFilePath, onFileSelect, depth }: TreeNodeProps) 
     }
 
     const ext = node.name.split(".").pop()?.toLowerCase();
+    
+    // Check if image file
+    const isImage = ext && ["png", "jpg", "jpeg", "webp", "gif", "svg", "ico"].includes(ext);
+    if (isImage) {
+      return <ImageIcon path={node.path} />;
+    }
+
     switch (ext) {
       case "py":
         return <FileCode className="h-4 w-4 text-yellow-550 dark:text-yellow-500 shrink-0" />;
@@ -145,3 +152,42 @@ function TreeNode({ node, activeFilePath, onFileSelect, depth }: TreeNodeProps) 
     </div>
   );
 }
+
+function ImageIcon({ path }: { path: string }) {
+  const [src, setSrc] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    const loadThumbnail = async () => {
+      try {
+        const url = `${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/file/read-image?path=${encodeURIComponent(path)}`;
+        const response = await fetch(url);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.status === "success" && active) {
+            setSrc(`data:${data.mime_type};base64,${data.base64}`);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load image thumbnail:", err);
+      }
+    };
+    loadThumbnail();
+    return () => {
+      active = false;
+    };
+  }, [path]);
+
+  if (src) {
+    return (
+      <img
+        src={src}
+        alt=""
+        className="h-4 w-4 object-cover rounded shrink-0 border border-border-color bg-neutral-900"
+      />
+    );
+  }
+
+  return <File className="h-4 w-4 text-neutral-500 shrink-0" />;
+}
+

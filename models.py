@@ -25,6 +25,10 @@ class ChatRequest(BaseModel):
         None,
         description="Raw text content of the active project file."
     )
+    project_path: Optional[str] = Field(
+        None,
+        description="Absolute path to the project root directory."
+    )
 
 class ChatResponse(BaseModel):
     response: str = Field(..., description="The text response from the model")
@@ -35,6 +39,14 @@ class FileReadRequest(BaseModel):
     Request schema to read a specific local file.
     """
     path: str = Field(..., description="Absolute path to the file on the host OS.")
+
+class FileWriteRequest(BaseModel):
+    """
+    Request schema to create or write content to a file.
+    """
+    path: str = Field(..., description="Path to the file, relative to the project root, or absolute.")
+    content: str = Field(..., description="Raw file content to write.")
+    project_path: Optional[str] = Field(None, description="Optional project root path if path is relative.")
 
 class RecallRequest(BaseModel):
     query: str = Field(..., description="The query to search memories")

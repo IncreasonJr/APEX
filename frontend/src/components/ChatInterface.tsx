@@ -7,6 +7,7 @@ import ChatMessage from "./ChatMessage";
 import ChatInput from "./ChatInput";
 import ContextIndicator from "./ContextIndicator";
 import ScrollToBottom from "./ui/ScrollToBottom";
+import PermissionModal from "./PermissionModal";
 
 interface ChatInterfaceProps {
   onNewChatRef: React.MutableRefObject<(() => void) | null>;
@@ -15,6 +16,7 @@ interface ChatInterfaceProps {
   onClearActiveFile: () => void;
   sidebarCollapsed?: boolean;
   onToggleSidebar?: () => void;
+  projectPath: string | null;
 }
 
 const SEARCH_KEYWORDS = [
@@ -97,6 +99,7 @@ export default function ChatInterface({
   onClearActiveFile,
   sidebarCollapsed = true,
   onToggleSidebar = () => {},
+  projectPath,
 }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -108,6 +111,8 @@ export default function ChatInterface({
   const [uploadStatus, setUploadStatus] = useState<"idle" | "processing" | "success" | "error">("idle");
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [processedFileContent, setProcessedFileContent] = useState<{ url?: string; content?: string } | null>(null);
+  const [fileWriteStatuses, setFileWriteStatuses] = useState<Record<string, "pending" | "approved" | "cancelled">>({});
+  const [pendingFileWrite, setPendingFileWrite] = useState<{ path: string; content: string } | null>(null);
 
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -119,6 +124,8 @@ export default function ChatInterface({
       handleRemoveFile();
       setLoading(false);
       setStreamingMessageId(null);
+      setFileWriteStatuses({});
+      setPendingFileWrite(null);
     };
   }, [onNewChatRef]);
 
@@ -295,6 +302,7 @@ export default function ChatInterface({
           image: imageBase64,
           active_file_path: activeFilePath,
           active_file_content: activeFileContent,
+          project_path: projectPath,
         }),
       });
 
@@ -366,6 +374,52 @@ export default function ChatInterface({
 
   const handleSuggestionClick = (suggestionText: string) => {
     setInput(suggestionText);
+  };
+
+  const handleOpenFileWriteRequest = (path: string, content: string) => {
+    setPendingFileWrite({ path, content });
+  };
+
+  const handleApproveFileWrite = async (path: string, content: string) => {
+    const url = `${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/file/write`;
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        path,
+        content,
+        project_path: projectPath,
+      }),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      let parsedErr = "Failed to write file";
+      try {
+        const errJson = JSON.parse(errText);
+        parsedErr = errJson.detail || errJson.error || parsedErr;
+      } catch (e) {
+        if (errText) parsedErr = errText;
+      }
+      throw new Error(parsedErr);
+    }
+
+    setFileWriteStatuses((prev) => ({
+      ...prev,
+      [path]: "approved",
+    }));
+  };
+
+  const handleClosePermissionModal = () => {
+    if (pendingFileWrite) {
+      setFileWriteStatuses((prev) => ({
+        ...prev,
+        [pendingFileWrite.path]: "cancelled",
+      }));
+    }
+    setPendingFileWrite(null);
   };
 
   return (
@@ -453,7 +507,12 @@ export default function ChatInterface({
               
               <div className="relative z-10">
                 {messages.map((message) => (
-                  <ChatMessage key={message.id} message={message} />
+                  <ChatMessage
+                    key={message.id}
+                    message={message}
+                    fileWriteStatuses={fileWriteStatuses}
+                    onOpenFileWriteRequest={handleOpenFileWriteRequest}
+                  />
                 ))}
               </div>
             </div>
@@ -500,6 +559,15 @@ export default function ChatInterface({
           uploadError={uploadError}
         />
       </div>
+      {pendingFileWrite && (
+        <PermissionModal
+          isOpen={!!pendingFileWrite}
+          onClose={handleClosePermissionModal}
+          path={pendingFileWrite.path}
+          content={pendingFileWrite.content}
+          onApprove={handleApproveFileWrite}
+        />
+      )}
     </div>
   );
 }

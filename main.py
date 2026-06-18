@@ -10,9 +10,9 @@ from openai import AsyncOpenAI
 import httpx
 
 from config import settings
-from models import ChatRequest, ChatResponse, RecallRequest, RetainRequest, SearchRequest, ExecuteRequest, FileReadRequest
+from models import ChatRequest, ChatResponse, RecallRequest, RetainRequest, SearchRequest, ExecuteRequest, FileReadRequest, FileWriteRequest
 from memory_client import retain_memory, recall_memory, HINDSIGHT_URL
-from tools import web_search, execute_code
+from tools import web_search, execute_code, write_file, list_images, read_image
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("apex_backend")
@@ -85,6 +85,45 @@ async def chat(request: ChatRequest, background_tasks: BackgroundTasks):
     # Inject active file context if provided
     if request.active_file_path and request.active_file_content:
         system_prompt += f"\n\n[Active Project File Context]\nPath: {request.active_file_path}\nContent:\n```\n{request.active_file_content}\n```\n"
+
+    # Inject project directory context awareness if provided
+    if request.project_path:
+        try:
+            file_list = []
+            image_list = []
+            image_extensions = {".png", ".jpg", ".jpeg", ".svg", ".webp", ".gif", ".ico"}
+            for root, dirs, files in os.walk(request.project_path):
+                dirs[:] = [d for d in dirs if d not in {".git", "node_modules", ".next", "venv", "__pycache__", ".gemini"}]
+                for file in files:
+                    abs_path = os.path.join(root, file)
+                    rel_path = os.path.relpath(abs_path, request.project_path)
+                    file_list.append(rel_path)
+                    ext = os.path.splitext(file)[1].lower()
+                    if ext in image_extensions:
+                        image_list.append(rel_path)
+            
+            system_prompt += f"\n\n[Project Context]\nRoot Path: {request.project_path}\n"
+            if file_list:
+                system_prompt += "Files in Project:\n" + "\n".join([f"- {f}" for f in file_list]) + "\n"
+            if image_list:
+                system_prompt += "Available Images:\n" + "\n".join([f"- {img}" for img in image_list]) + "\n"
+        except Exception as e:
+            logger.warning(f"Failed to load project context for system prompt: {e}")
+
+    # Add instructions to output file writes in a special block format
+    system_prompt += (
+        "\n\n[FILE CREATION RULES]\n"
+        "If the user asks you to create or modify a file, you must output the target file content inside a special block using this EXACT format:\n"
+        "<<<WRITE_FILE:relative/path/to/file\n"
+        "file content\n"
+        ">>>\n"
+        "Example:\n"
+        "<<<WRITE_FILE:src/utils.py\n"
+        "def add(a, b):\n"
+        "    return a + b\n"
+        ">>>\n"
+        "Always specify relative paths from the project root. The user will be prompted to approve the write, and it will be written to disk only after their confirmation."
+    )
 
     # Memory recall
     try:
@@ -242,6 +281,45 @@ async def chat_stream(request: ChatRequest):
     if request.active_file_path and request.active_file_content:
         system_prompt += f"\n\n[Active Project File Context]\nPath: {request.active_file_path}\nContent:\n```\n{request.active_file_content}\n```\n"
 
+    # Inject project directory context awareness if provided
+    if request.project_path:
+        try:
+            file_list = []
+            image_list = []
+            image_extensions = {".png", ".jpg", ".jpeg", ".svg", ".webp", ".gif", ".ico"}
+            for root, dirs, files in os.walk(request.project_path):
+                dirs[:] = [d for d in dirs if d not in {".git", "node_modules", ".next", "venv", "__pycache__", ".gemini"}]
+                for file in files:
+                    abs_path = os.path.join(root, file)
+                    rel_path = os.path.relpath(abs_path, request.project_path)
+                    file_list.append(rel_path)
+                    ext = os.path.splitext(file)[1].lower()
+                    if ext in image_extensions:
+                        image_list.append(rel_path)
+            
+            system_prompt += f"\n\n[Project Context]\nRoot Path: {request.project_path}\n"
+            if file_list:
+                system_prompt += "Files in Project:\n" + "\n".join([f"- {f}" for f in file_list]) + "\n"
+            if image_list:
+                system_prompt += "Available Images:\n" + "\n".join([f"- {img}" for img in image_list]) + "\n"
+        except Exception as e:
+            logger.warning(f"Failed to load project context for system prompt: {e}")
+
+    # Add instructions to output file writes in a special block format
+    system_prompt += (
+        "\n\n[FILE CREATION RULES]\n"
+        "If the user asks you to create or modify a file, you must output the target file content inside a special block using this EXACT format:\n"
+        "<<<WRITE_FILE:relative/path/to/file\n"
+        "file content\n"
+        ">>>\n"
+        "Example:\n"
+        "<<<WRITE_FILE:src/utils.py\n"
+        "def add(a, b):\n"
+        "    return a + b\n"
+        ">>>\n"
+        "Always specify relative paths from the project root. The user will be prompted to approve the write, and it will be written to disk only after their confirmation."
+    )
+
     # Memory recall
     user_id = "default_user"
     try:
@@ -330,6 +408,27 @@ async def read_file_endpoint(request: FileReadRequest):
 @app.post("/file/open")
 async def open_file_endpoint(request: FileReadRequest):
     return await read_file_endpoint(request)
+
+@app.post("/file/write")
+async def write_file_endpoint(request: FileWriteRequest):
+    res = await write_file(request.path, request.content, request.project_path)
+    if res.get("status") == "error":
+        raise HTTPException(status_code=500, detail=res.get("error"))
+    return res
+
+@app.get("/file/list-images")
+async def list_images_endpoint(path: str):
+    res = await list_images(path)
+    if res.get("status") == "error":
+        raise HTTPException(status_code=500, detail=res.get("error"))
+    return res
+
+@app.get("/file/read-image")
+async def read_image_endpoint(path: str, project_path: Optional[str] = None):
+    res = await read_image(path, project_path)
+    if res.get("status") == "error":
+        raise HTTPException(status_code=500, detail=res.get("error"))
+    return res
 
 if __name__ == "__main__":
     import uvicorn

@@ -1,6 +1,6 @@
 "use client";
 
-import { Sparkles, User, Copy, Check, File, FileText, FileCode } from "lucide-react";
+import { Sparkles, User, Copy, Check, File, FileText, FileCode, Edit2 } from "lucide-react";
 import { useState } from "react";
 import { Message } from "@/lib/api";
 import { motion, useReducedMotion, AnimatePresence } from "framer-motion";
@@ -10,9 +10,15 @@ import ToolBadge from "./ToolBadge";
 
 interface ChatMessageProps {
   message: Message;
+  fileWriteStatuses?: Record<string, "pending" | "approved" | "cancelled">;
+  onOpenFileWriteRequest?: (path: string, content: string) => void;
 }
 
-export default function ChatMessage({ message }: ChatMessageProps) {
+export default function ChatMessage({
+  message,
+  fileWriteStatuses = {},
+  onOpenFileWriteRequest,
+}: ChatMessageProps) {
   const isUser = message.role === "user";
   const [copied, setCopied] = useState(false);
   const shouldReduceMotion = useReducedMotion();
@@ -203,6 +209,113 @@ export default function ChatMessage({ message }: ChatMessageProps) {
     });
   };
 
+  const parseMessageBlocks = (text: string) => {
+    const blocks: { type: "text" | "file_write"; path?: string; content: string; isStreaming?: boolean }[] = [];
+    let lastIndex = 0;
+    
+    while (true) {
+      const startIdx = text.indexOf("<<<WRITE_FILE:", lastIndex);
+      if (startIdx === -1) {
+        const remainder = text.substring(lastIndex);
+        if (remainder.trim() || blocks.length === 0) {
+          blocks.push({ type: "text", content: remainder });
+        }
+        break;
+      }
+      
+      const textBefore = text.substring(lastIndex, startIdx);
+      if (textBefore.trim()) {
+        blocks.push({ type: "text", content: textBefore });
+      }
+      
+      const newlineIdx = text.indexOf("\n", startIdx);
+      if (newlineIdx === -1) {
+        const path = text.substring(startIdx + 14);
+        blocks.push({ type: "file_write", path, content: "", isStreaming: true });
+        break;
+      }
+      
+      const path = text.substring(startIdx + 14, newlineIdx).trim();
+      const endIdx = text.indexOf(">>>", newlineIdx);
+      
+      if (endIdx === -1) {
+        const content = text.substring(newlineIdx + 1);
+        blocks.push({ type: "file_write", path, content, isStreaming: true });
+        break;
+      }
+      
+      const content = text.substring(newlineIdx + 1, endIdx);
+      blocks.push({ type: "file_write", path, content, isStreaming: false });
+      lastIndex = endIdx + 3;
+    }
+    
+    return blocks;
+  };
+
+  const renderFileWriteCard = (path: string, blockContent: string, isStreaming: boolean) => {
+    const status = fileWriteStatuses[path] || "pending";
+    
+    const getStatusStyles = () => {
+      switch (status) {
+        case "approved":
+          return {
+            border: "border-green-500/30 bg-green-950/10",
+            text: "text-green-400",
+            label: "✓ Written to Disk"
+          };
+        case "cancelled":
+          return {
+            border: "border-red-500/30 bg-red-950/10",
+            text: "text-red-400",
+            label: "✗ Declined"
+          };
+        default:
+          return {
+            border: isStreaming ? "border-accent/30 bg-accent/5 animate-pulse" : "border-accent/40 bg-accent/10",
+            text: "text-accent",
+            label: isStreaming ? "✍ Writing file..." : "⚡ Pending Approval"
+          };
+      }
+    };
+    
+    const styles = getStatusStyles();
+    
+    return (
+      <div className={`flex flex-col p-4 rounded-xl border ${styles.border} max-w-md my-3.5 font-sans shadow-sm`}>
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-[10px] font-bold tracking-wider uppercase text-neutral-400">
+            PROPOSED FILE
+          </span>
+          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full bg-neutral-900 border border-border-color uppercase ${styles.text}`}>
+            {styles.label}
+          </span>
+        </div>
+        
+        <div className="flex items-center gap-3 bg-neutral-950/40 p-3 rounded-lg border border-border-color/40 mb-3.5">
+          <FileCode className="h-5 w-5 text-accent shrink-0" />
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-semibold text-foreground truncate select-all" title={path}>
+              {path}
+            </p>
+            <p className="text-[10px] text-neutral-450 dark:text-neutral-500 font-semibold mt-1">
+              {blockContent.split("\n").length} lines • {blockContent.length} chars
+            </p>
+          </div>
+        </div>
+        
+        {!isStreaming && status === "pending" && onOpenFileWriteRequest && (
+          <button
+            onClick={() => onOpenFileWriteRequest(path, blockContent)}
+            className="w-full h-9 bg-accent hover:bg-accent/90 text-white rounded-lg text-xs uppercase font-bold transition-all flex items-center justify-center gap-1.5 shadow-md shadow-accent/10"
+          >
+            <Edit2 className="h-3.5 w-3.5" />
+            Inspect & Approve
+          </button>
+        )}
+      </div>
+    );
+  };
+
   return (
     <motion.div
       initial="hidden"
@@ -230,15 +343,26 @@ export default function ChatMessage({ message }: ChatMessageProps) {
 
         {/* Content bubble / plain text */}
         {message.content && (
-          <div className="w-full mt-0.5">
+          <div className="w-full mt-0.5 flex flex-col gap-2">
             {isUser ? (
               <div className="p-3.5 bg-[var(--user-msg-bg)] border border-border-color rounded-2xl text-foreground max-w-fit leading-relaxed shadow-sm text-left">
                 {renderContent(message.content)}
               </div>
             ) : (
-              <div className="p-3.5 bg-[var(--surface)] border border-border-color rounded-2xl text-foreground max-w-fit leading-relaxed shadow-sm text-left">
-                {renderContent(message.content)}
-              </div>
+              parseMessageBlocks(message.content).map((block, bIdx) => {
+                if (block.type === "file_write") {
+                  return (
+                    <div key={bIdx}>
+                      {renderFileWriteCard(block.path || "unnamed_file", block.content, !!block.isStreaming)}
+                    </div>
+                  );
+                }
+                return (
+                  <div key={bIdx} className="p-3.5 bg-[var(--surface)] border border-border-color rounded-2xl text-foreground max-w-fit leading-relaxed shadow-sm text-left">
+                    {renderContent(block.content)}
+                  </div>
+                );
+              })
             )}
           </div>
         )}

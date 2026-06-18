@@ -4,6 +4,9 @@ import logging
 import threading
 import time
 import subprocess
+import difflib
+import base64
+import mimetypes
 from typing import Dict, Any
 import httpx
 from tavily import TavilyClient
@@ -181,3 +184,116 @@ async def execute_code(code: str, language: str = "python") -> str:
     except Exception as e:
         logger.error(f"Code execution wrapper failed: {e}")
         return f"Execution error: {str(e)}"
+
+async def write_file(path: str, content: str, project_path: str = None) -> Dict[str, Any]:
+    """Write content to a file, returning success status and a diff preview."""
+    try:
+        # Resolve path relative to project_path if it's relative
+        target_path = path
+        if project_path and not os.path.isabs(path):
+            target_path = os.path.abspath(os.path.join(project_path, path))
+            
+        diff_preview = ""
+        if os.path.exists(target_path):
+            try:
+                with open(target_path, 'r', encoding='utf-8', errors='replace') as f:
+                    old_content = f.read()
+                old_lines = old_content.splitlines(keepends=True)
+                new_lines = content.splitlines(keepends=True)
+                diff = difflib.unified_diff(
+                    old_lines, new_lines, 
+                    fromfile='old_' + os.path.basename(target_path), 
+                    tofile='new_' + os.path.basename(target_path)
+                )
+                diff_preview = "".join(diff)
+            except Exception as e:
+                diff_preview = f"[Error generating diff: {e}]"
+        else:
+            diff_preview = f"[New File Created]\n+ " + "\n+ ".join(content.splitlines()[:20])
+            if len(content.splitlines()) > 20:
+                diff_preview += "\n... (truncated)"
+        
+        # Create parent directories if they don't exist
+        os.makedirs(os.path.dirname(target_path), exist_ok=True)
+        
+        # Write the file
+        with open(target_path, 'w', encoding='utf-8') as f:
+            f.write(content)
+            
+        return {
+            "status": "success",
+            "path": target_path,
+            "rel_path": os.path.relpath(target_path, project_path) if project_path else target_path,
+            "diff": diff_preview,
+            "message": f"Successfully wrote {len(content)} bytes to {path}"
+        }
+    except Exception as e:
+        logger.error(f"Error writing file {path}: {e}")
+        return {
+            "status": "error",
+            "path": path,
+            "error": str(e)
+        }
+
+async def list_images(project_path: str) -> Dict[str, Any]:
+    """List all image files in the project directory recursively."""
+    image_extensions = {".png", ".jpg", ".jpeg", ".svg", ".webp", ".gif", ".ico"}
+    images = []
+    try:
+        if not os.path.exists(project_path) or not os.path.isdir(project_path):
+            return {"status": "error", "error": f"Path '{project_path}' is not a directory"}
+            
+        for root, dirs, files in os.walk(project_path):
+            dirs[:] = [d for d in dirs if d not in {".git", "node_modules", ".next", "venv", "__pycache__", ".gemini"}]
+            for file in files:
+                ext = os.path.splitext(file)[1].lower()
+                if ext in image_extensions:
+                    abs_path = os.path.join(root, file)
+                    rel_path = os.path.relpath(abs_path, project_path)
+                    images.append({
+                        "name": file,
+                        "path": abs_path,
+                        "rel_path": rel_path
+                    })
+        return {"status": "success", "images": images}
+    except Exception as e:
+        logger.error(f"Error listing images in {project_path}: {e}")
+        return {"status": "error", "error": str(e)}
+
+async def read_image(path: str, project_path: str = None) -> Dict[str, Any]:
+    """Read an image file and return its metadata and base64 contents."""
+    try:
+        target_path = path
+        if project_path and not os.path.isabs(path):
+            target_path = os.path.abspath(os.path.join(project_path, path))
+            
+        if not os.path.exists(target_path):
+            return {"status": "error", "error": f"File '{target_path}' does not exist"}
+        if not os.path.isfile(target_path):
+            return {"status": "error", "error": f"Path '{target_path}' is not a file"}
+            
+        mime_type, _ = mimetypes.guess_type(target_path)
+        if not mime_type or not mime_type.startswith("image/"):
+            ext = os.path.splitext(target_path)[1].lower()
+            if ext == ".svg":
+                mime_type = "image/svg+xml"
+            else:
+                mime_type = "image/png"
+
+        with open(target_path, "rb") as f:
+            img_data = f.read()
+            
+        base64_data = base64.b64encode(img_data).decode("utf-8")
+        
+        return {
+            "status": "success",
+            "exists": True,
+            "path": target_path,
+            "rel_path": os.path.relpath(target_path, project_path) if project_path else target_path,
+            "mime_type": mime_type,
+            "base64": base64_data,
+            "size_bytes": len(img_data)
+        }
+    except Exception as e:
+        logger.error(f"Error reading image {path}: {e}")
+        return {"status": "error", "error": str(e)}
