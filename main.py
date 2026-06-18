@@ -49,6 +49,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/")
+async def root():
+    return {"status": "healthy", "service": "Apex AI Agent Backend"}
+
 openai_client = AsyncOpenAI(
     api_key=settings.nvidia_api_key,
     base_url=settings.nvidia_base_url,
@@ -326,4 +330,9 @@ async def read_file_endpoint(request: FileReadRequest):
 @app.post("/file/open")
 async def open_file_endpoint(request: FileReadRequest):
     return await read_file_endpoint(request)
+
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False)
 
