@@ -19,10 +19,32 @@ logger = logging.getLogger("apex_backend")
 
 app = FastAPI(title="Apex AI Agent", version="2.0.0")
 
+# Check if memory service is enabled. Defaults to false.
+MEMORY_ENABLED = os.getenv("MEMORY_ENABLED", "false").lower() == "true"
+
+# Define allowed origins, including the Vercel frontend URL and local setups
+allowed_origins = [
+    "https://apex-gamma-self.vercel.app",
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "http://localhost:3002",
+]
+
+# Allow custom origins from environment if provided
+origins_env = os.getenv("ALLOWED_ORIGINS")
+if origins_env:
+    if origins_env.strip() == "*":
+        allowed_origins = ["*"]
+    else:
+        allowed_origins.extend([o.strip() for o in origins_env.split(",") if o.strip()])
+
+# Wildcard "*" origins cannot be used with allow_credentials=True in Starlette
+allow_credentials = "*" not in allowed_origins
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=allowed_origins,
+    allow_credentials=allow_credentials,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -34,6 +56,8 @@ openai_client = AsyncOpenAI(
 )
 
 async def safe_retain_memory(user_id: str, user_msg: str, assistant_msg: str):
+    if not MEMORY_ENABLED:
+        return
     try:
         await retain_memory(user_id, user_msg, assistant_msg)
     except Exception as e:
@@ -60,7 +84,7 @@ async def chat(request: ChatRequest, background_tasks: BackgroundTasks):
 
     # Memory recall
     try:
-        if request.message and request.message.strip():
+        if MEMORY_ENABLED and request.message and request.message.strip():
             memories = await recall_memory(user_id, request.message)
             if memories:
                 system_prompt += f"\n\nRelevant memories:\n{memories}\n"
@@ -157,9 +181,11 @@ async def direct_code_execution(request: ExecuteRequest):
 
 @app.get("/memory/stats")
 async def memory_stats():
+    if not MEMORY_ENABLED:
+        return {"status": "disabled", "detail": "Memory service is disabled via MEMORY_ENABLED=false"}
     try:
         async with httpx.AsyncClient() as client:
-            response = await client.get(f"{HINDSIGHT_URL}/health", timeout=5.0)
+            response = await client.get(f"{HINDSIGHT_URL}/health", timeout=2.0)
             hindsight_health = response.json() if response.status_code == 200 else {"status": "unhealthy"}
         return {"status": "connected", "hindsight_service_health": hindsight_health}
     except Exception as e:
@@ -215,7 +241,7 @@ async def chat_stream(request: ChatRequest):
     # Memory recall
     user_id = "default_user"
     try:
-        if request.message and request.message.strip():
+        if MEMORY_ENABLED and request.message and request.message.strip():
             memories = await recall_memory(user_id, request.message)
             if memories:
                 system_prompt += f"\n\nRelevant memories:\n{memories}\n"

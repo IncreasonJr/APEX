@@ -24,7 +24,7 @@ async def retain_memory(user_id: str, user_msg: str, assistant_msg: str = "") ->
     }
     
     async with httpx.AsyncClient() as client:
-        response = await client.post(url, json=payload, timeout=30.0)
+        response = await client.post(url, json=payload, timeout=2.0)
         response.raise_for_status()
         return response.json()
 
@@ -39,7 +39,7 @@ async def recall_memory(user_id: str, query: str) -> str:
     }
     
     async with httpx.AsyncClient() as client:
-        response = await client.post(url, json=payload, timeout=30.0)
+        response = await client.post(url, json=payload, timeout=2.0)
         response.raise_for_status()
         data = response.json()
         
@@ -61,7 +61,7 @@ async def reflect_memory(user_id: str, topic: str) -> str:
     }
     
     async with httpx.AsyncClient() as client:
-        response = await client.post(url, json=payload, timeout=30.0)
+        response = await client.post(url, json=payload, timeout=2.0)
         response.raise_for_status()
         data = response.json()
         return data.get("text", "")
