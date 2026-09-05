@@ -381,7 +381,7 @@ export default function ChatInterface({
   };
 
   const handleApproveFileWrite = async (path: string, content: string) => {
-    const url = `${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"}/file/write`;
+    const url = `${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8001"}/file/write`;
     const response = await fetch(url, {
       method: "POST",
       headers: {

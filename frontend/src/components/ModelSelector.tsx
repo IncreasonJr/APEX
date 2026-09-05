@@ -18,24 +18,10 @@ const MODELS = [
     iconColor: "text-accent",
   },
   {
-    id: "meta/llama-4-maverick-17b-128e-instruct",
-    name: "llama_4_general",
-    desc: "Highly capable general instruction model",
+    id: "meta/llama-3.2-11b-vision-instruct",
+    name: "llama_3.2_vision",
+    desc: "Multimodal instruction model for text and vision",
     icon: Brain,
-    iconColor: "text-neutral-400",
-  },
-  {
-    id: "deepseek-ai/deepseek-r1",
-    name: "deepseek_r1_reasoning",
-    desc: "Advanced reasoning for mathematical calculations",
-    icon: Microscope,
-    iconColor: "text-neutral-400",
-  },
-  {
-    id: "qwen/qwen3-coder-480b-a35b-instruct",
-    name: "qwen_coder",
-    desc: "Specialist model for coding tasks",
-    icon: Code,
     iconColor: "text-neutral-400",
   },
 ];

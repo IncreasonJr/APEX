@@ -73,8 +73,8 @@ def select_model(prompt: str, user_choice: str = None) -> str:
     prompt_lower = prompt.lower()
     math_keywords = {"math", "solve", "equation", "prove", "logic", "reasoning", "calculate"}
     if any(kw in prompt_lower for kw in math_keywords):
-        return "deepseek-ai/deepseek-r1"
-    return "meta/llama-4-maverick-17b-128e-instruct"
+        return "meta/llama-3.2-11b-vision-instruct"
+    return "meta/llama-3.2-11b-vision-instruct"
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest, background_tasks: BackgroundTasks):
@@ -152,7 +152,7 @@ async def chat(request: ChatRequest, background_tasks: BackgroundTasks):
     # Build messages based on whether we have an image
     if image_base64:
         # Vision request - use vision format
-        logger.info(f"🖼️ Processing vision request with model: meta/llama-4-maverick-17b-128e-instruct")
+        logger.info(f"🖼️ Processing vision request with model: meta/llama-3.2-11b-vision-instruct")
         content = [
             {
                 "type": "text", 
@@ -168,7 +168,7 @@ async def chat(request: ChatRequest, background_tasks: BackgroundTasks):
             {"role": "user", "content": content}
         ]
         # Use vision-capable model
-        vision_model = "meta/llama-4-maverick-17b-128e-instruct"
+        vision_model = "meta/llama-3.2-11b-vision-instruct"
         try:
             completion = await openai_client.chat.completions.create(
                 model=vision_model,
@@ -260,7 +260,7 @@ async def chat_stream(request: ChatRequest):
 
     # Determine model
     if image_base64:
-        model = "meta/llama-4-maverick-17b-128e-instruct"
+        model = "meta/llama-3.2-11b-vision-instruct"
         content = [
             {
                 "type": "text", 
